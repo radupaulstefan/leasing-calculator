@@ -116,7 +116,12 @@
         color: var(--primary-color);
       }
 
-      .result-total .result-label, .result-total .result-value {
+      .result-total .result-label {
+        font-weight: 400;
+        font-size: 1rem;
+        color: var(--primary-color);
+      }
+      .result-total .result-value {
         font-weight: 800;
         font-size: 1rem;
         color: var(--primary-color);
@@ -125,7 +130,7 @@
   </head>
   <body>
     <div class="leasing-calculator">
-      <h2 class="calculator-title">Calculator Leasing Auto</h2>
+      <!-- <h2 class="calculator-title">Calculator Leasing Auto</h2> -->
       <form class="calculator-form" id="leasingForm">
         <div class="form-group">
           <label for="vehiclePrice">Valoare masina (EUR):</label>
@@ -224,12 +229,19 @@
         <button type="submit" class="calculate-btn">Calculeaza</button>
       </form>
       <div class="results" id="results">
+        <div class="result-item result-total">
+          <span class="result-label"
+            >Trebuie sa scoti randament de minim
+            <span class="result-value" id="cagrLeasing">0%</span>, pentru ca
+            leasingul sa fie mai eficient decat varianta cash.</span
+          >
+        </div>
         <div class="result-item">
-          <span class="result-label">Rata lunară:</span>
+          <span class="result-label">Rata lunara:</span>
           <span class="result-value" id="monthlyPayment">0 RON</span>
         </div>
         <div class="result-item">
-          <span class="result-label">Dobânda totală:</span>
+          <span class="result-label">Dobanda totala:</span>
           <span class="result-value" id="totalInterest">0 RON</span>
         </div>
         <div class="result-item">
@@ -241,17 +253,29 @@
           <span class="result-value" id="managementFeeTotal">0 RON</span>
         </div>
         <div class="result-item result-total">
-          <span class="result-label">Total plătit:</span>
+          <span class="result-label">Total platit:</span>
           <span class="result-value" id="totalPayment">0 RON</span>
         </div>
       </div>
-      <canvas id="leasingChart" style="max-width: 100%; margin-top: 2rem;"></canvas>
+      <canvas
+        id="leasingChart"
+        style="max-width: 100%; margin-top: 2rem"
+      ></canvas>
     </div>
 
     <!-- Add Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
+      // Add input event listeners to all form inputs
+      // const formInputs = document.querySelectorAll('#leasingForm input, #leasingForm select');
+      // formInputs.forEach(input => {
+      //   input.addEventListener('input', function() {
+      //     // Trigger form submission event
+      //     const submitEvent = new Event('submit');
+      //     document.getElementById('leasingForm').dispatchEvent(submitEvent);
+      //   });
+      // });
       document
         .getElementById("leasingForm")
         .addEventListener("submit", function (e) {
@@ -297,12 +321,22 @@
           const totalPayment = monthlyPayment * leaseTerm + residualValue;
           const totalInterest = totalPayment - loanAmount;
 
-          const totalFees =
-            adminFee + managementFee * leaseTerm + otherFees;
+          const totalFees = adminFee + managementFee * leaseTerm + otherFees;
           const totalPaymentWithFees = totalPayment + totalFees;
-          
+          const totalPaymentWithFeesAndDownPayment =
+            totalPaymentWithFees + downPayment;
+
           // Calculate adminFee and managementFee
           const managementFeeTotal = managementFee * leaseTerm;
+
+          const cagrLeasing =
+            (Math.pow(
+              totalPaymentWithFees / (vehiclePrice - downPayment),
+              1 / (leaseTerm / 12)
+            ) -
+              1) *
+            100;
+          console.log(cagrLeasing);
 
           // Update results
           document.getElementById(
@@ -310,25 +344,36 @@
           ).textContent = `${monthlyPayment.toFixed(2)} EUR`;
           document.getElementById(
             "totalPayment"
-          ).textContent = `${totalPaymentWithFees.toFixed(2)} EUR`;
+          ).textContent = `${totalPaymentWithFeesAndDownPayment.toFixed(
+            2
+          )} EUR`;
           document.getElementById(
             "totalInterest"
           ).textContent = `${totalInterest.toFixed(2)} EUR`;
-          document.getElementById('adminFeeTotal').textContent = `${adminFee.toFixed(2)} EUR`;
-          document.getElementById('managementFeeTotal').textContent = `${managementFeeTotal.toFixed(2)} EUR`;
-
+          document.getElementById(
+            "adminFeeTotal"
+          ).textContent = `${adminFee.toFixed(2)} EUR`;
+          document.getElementById(
+            "managementFeeTotal"
+          ).textContent = `${managementFeeTotal.toFixed(2)} EUR`;
+          document.getElementById(
+            "cagrLeasing"
+          ).textContent = `${cagrLeasing.toFixed(2)}%`;
           // Show results
           document.getElementById("results").classList.add("active");
 
           // Place this inside your submit handler after calculations
           // --- BEGIN yearly breakdown calculation ---
           const years = Math.ceil(leaseTerm / 12);
-          const labels = Array.from({length: years}, (_, i) => `Anul ${i+1}`);
+          const labels = Array.from(
+            { length: years },
+            (_, i) => `Anul ${i + 1}`
+          );
           // Plătit la început: only adminFeeTotal + otherFees, all in year 1
           const upfrontArr = Array(years).fill(0);
           upfrontArr[0] = adminFee + otherFees;
           const residualArr = Array(years).fill(0);
-          residualArr[years-1] = residualValue;
+          residualArr[years - 1] = residualValue;
           const principalArr = Array(years).fill(0);
           const interestArr = Array(years).fill(0);
           const managementFeeArr = Array(years).fill(0);
@@ -352,13 +397,17 @@
             balance -= principalMonth;
           }
 
-          updateLeasingChart({
-            upfront: upfrontArr,
-            principal: principalArr,
-            interest: interestArr,
-            managementFee: managementFeeArr,
-            residual: residualArr
-          }, labels, 'EUR');
+          updateLeasingChart(
+            {
+              upfront: upfrontArr,
+              principal: principalArr,
+              interest: interestArr,
+              managementFee: managementFeeArr,
+              residual: residualArr,
+            },
+            labels,
+            "EUR"
+          );
           // --- END yearly breakdown calculation ---
         });
 
@@ -380,64 +429,69 @@
       let leasingChartInstance = null;
 
       function updateLeasingChart(data, labels, currency) {
-        const ctx = document.getElementById('leasingChart').getContext('2d');
+        const ctx = document.getElementById("leasingChart").getContext("2d");
         if (leasingChartInstance) {
           leasingChartInstance.destroy();
         }
         leasingChartInstance = new Chart(ctx, {
-          type: 'bar',
+          type: "bar",
           data: {
             labels: labels,
             datasets: [
               {
-                label: 'Comision Gestiune',
+                label: "Comision Gestiune",
                 data: data.managementFee,
-                backgroundColor: '#ffd60a',
-                stack: 'Stack 0',
+                backgroundColor: "#ffd60a",
+                stack: "Stack 0",
               },
               {
-                label: 'Principal',
+                label: "Principal",
                 data: data.principal,
-                backgroundColor: '#4895ef',
-                stack: 'Stack 0',
+                backgroundColor: "#4895ef",
+                stack: "Stack 0",
               },
               {
-                label: 'Dobândă',
+                label: "Dobândă",
                 data: data.interest,
-                backgroundColor: '#f3722c',
-                stack: 'Stack 0',
+                backgroundColor: "#f3722c",
+                stack: "Stack 0",
               },
               {
-                label: 'Plătit la început',
+                label: "Plătit la început",
                 data: data.upfront,
-                backgroundColor: '#43aa8b',
-                stack: 'Stack 0',
+                backgroundColor: "#43aa8b",
+                stack: "Stack 0",
               },
               {
-                label: 'Plătit la final',
+                label: "Plătit la final",
                 data: data.residual,
-                backgroundColor: '#4ecdc4',
-                stack: 'Stack 0',
+                backgroundColor: "#4ecdc4",
+                stack: "Stack 0",
               },
-            ]
+            ],
           },
           options: {
             responsive: true,
             plugins: {
-              legend: { position: 'left' },
+              legend: { position: "left" },
               tooltip: {
                 callbacks: {
-                  label: function(context) {
-                    return `${context.dataset.label}: ${context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${currency}`;
-                  }
-                }
-              }
+                  label: function (context) {
+                    return `${
+                      context.dataset.label
+                    }: ${context.parsed.y.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} ${currency}`;
+                  },
+                },
+              },
             },
             scales: {
               x: { stacked: true },
-              y: { stacked: true }
-            }
-          }
+              y: { stacked: true },
+            },
+          },
         });
       }
     </script>
